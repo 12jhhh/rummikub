@@ -1,0 +1,1474 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>拉密 · Rummikub · 线上对战</title>
+<style>
+:root{
+  --ink:#eef6f2;
+  --muted:#93aaa0;
+  --gold:#e9c877;
+  --danger:#ff6f6f;
+  --ok:#5fd39a;
+  --p1:#e9c877;
+  --p2:#66cdd8;
+  --line:rgba(255,255,255,.10);
+}
+*{box-sizing:border-box;}
+[hidden]{display:none !important;}
+html,body{height:100%;margin:0;}
+body{
+  font-family:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  color:var(--ink);
+  background:radial-gradient(1100px 520px at 50% -8%, #1f6a52 0%, #0d3428 52%, #061a14 100%);
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+  user-select:none;
+}
+#app{height:100vh;height:100dvh;display:flex;flex-direction:column;min-height:0;}
+
+/* ---------------- 顶栏 ---------------- */
+.topbar{
+  flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:8px 16px;
+  background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(0,0,0,.30));
+  border-bottom:1px solid var(--line);
+  box-shadow:0 6px 18px rgba(0,0,0,.25);
+  z-index:5;
+}
+.brand{display:flex;align-items:baseline;gap:7px;font-size:19px;font-weight:800;letter-spacing:1px;color:var(--gold);white-space:nowrap;}
+.brand small{font-size:9px;letter-spacing:2.5px;color:var(--muted);font-weight:700;}
+.players{display:flex;gap:8px;align-items:center;}
+.pchip{
+  display:flex;align-items:center;gap:7px;padding:5px 10px;border-radius:10px;font-size:12px;
+  background:rgba(0,0,0,.26);border:1px solid rgba(255,255,255,.10);transition:.18s;white-space:nowrap;
+}
+.pchip .pdot{width:8px;height:8px;border-radius:50%;background:#667;}
+.pchip.p0 .pdot{background:var(--p1);box-shadow:0 0 8px rgba(233,200,119,.7);}
+.pchip.p1 .pdot{background:var(--p2);box-shadow:0 0 8px rgba(102,205,216,.7);}
+.pchip.active{border-color:rgba(233,200,119,.65);background:rgba(233,200,119,.12);box-shadow:0 0 0 1px rgba(233,200,119,.18),0 0 20px rgba(233,200,119,.12);}
+.pchip .pname{font-weight:700;max-width:110px;overflow:hidden;text-overflow:ellipsis;}
+.pchip .pmeta{color:var(--muted);font-variant-numeric:tabular-nums;}
+.pchip .me{font-size:10px;font-weight:800;color:#2a1f06;background:var(--gold);border-radius:999px;padding:1px 5px;line-height:1.2;}
+.pbadge{font-size:10px;padding:2px 6px;border-radius:999px;font-weight:700;letter-spacing:.3px;border:1px solid transparent;}
+.pbadge.ok{color:#0c2a1f;background:var(--ok);border-color:rgba(0,0,0,.15);}
+.pbadge.no{color:#ffd7a1;background:rgba(233,168,79,.16);border-color:rgba(233,168,79,.45);}
+.spacer{flex:1 1 auto;}
+.roominfo{
+  display:flex;align-items:center;gap:7px;padding:5px 10px;border-radius:9px;
+  background:rgba(0,0,0,.25);border:1px solid var(--line);font-size:11px;color:#cfe0d8;cursor:pointer;
+}
+.roominfo b{color:var(--gold);letter-spacing:1.5px;font-size:12px;}
+.roominfo:hover{border-color:rgba(233,200,119,.5);}
+.netdot{width:8px;height:8px;border-radius:50%;background:#7a8b84;flex:0 0 auto;}
+.netdot.on{background:var(--ok);box-shadow:0 0 8px rgba(95,211,154,.8);}
+.netdot.off{background:#ff9a63;box-shadow:0 0 8px rgba(255,154,99,.7);}
+.deckbox{display:flex;align-items:center;gap:9px;padding:4px 10px 4px 6px;border-radius:10px;background:rgba(0,0,0,.25);border:1px solid var(--line);}
+.deckstack{
+  width:30px;height:38px;border-radius:5px;
+  background:repeating-linear-gradient(135deg,#20436f 0 5px,#18345a 5px 10px);
+  border:1px solid rgba(255,255,255,.22);
+  box-shadow:2px 2px 0 rgba(0,0,0,.35),inset 0 0 0 2px rgba(255,255,255,.07);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:800;color:#eaf2ff;font-variant-numeric:tabular-nums;
+}
+.deckmeta{display:flex;flex-direction:column;line-height:1.15;}
+.deckmeta b{font-size:13px;}
+.deckmeta span{font-size:9px;color:var(--muted);letter-spacing:.6px;}
+.actions{display:flex;gap:8px;align-items:center;}
+.btn{
+  font:inherit;font-size:12.5px;font-weight:700;padding:8px 13px;border-radius:9px;cursor:pointer;
+  border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07);color:var(--ink);
+  transition:.15s;white-space:nowrap;
+}
+.btn:hover:not(:disabled){background:rgba(255,255,255,.14);transform:translateY(-1px);}
+.btn:active:not(:disabled){transform:translateY(0);}
+.btn:disabled{opacity:.38;cursor:not-allowed;}
+.btn.primary{
+  background:linear-gradient(180deg,#f2daa2,#d3ab5d);color:#2a1f06;border-color:#f6e2b4;
+  box-shadow:0 2px 0 #8d6f33,0 6px 14px rgba(0,0,0,.35);
+}
+.btn.primary:hover:not(:disabled){filter:brightness(1.05);}
+.btn.ghost{background:rgba(0,0,0,.22);}
+.btn.icon{width:32px;padding:8px 0;text-align:center;font-size:14px;}
+
+/* ---------------- 桌面 ---------------- */
+.board-wrap{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:12px 16px;overscroll-behavior:contain;}
+.board{display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start;min-height:100%;}
+.board.is-empty{flex-direction:column;justify-content:center;}
+.board-empty{
+  width:100%;min-height:170px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  border:2px dashed rgba(255,255,255,.16);border-radius:16px;color:var(--muted);
+}
+.board-empty b{font-size:15px;color:#c8d8d0;font-weight:700;}
+.board-empty span{font-size:12px;}
+.board.accept-new .board-empty{border-color:rgba(233,200,119,.75);background:rgba(233,200,119,.07);color:#f0dfb6;}
+.board.accept-new::after{
+  content:"";flex:1 1 100%;min-height:56px;border-radius:12px;
+  border:2px dashed rgba(233,200,119,.55);background:rgba(233,200,119,.05);
+}
+.set{
+  display:flex;flex-direction:column;gap:5px;padding:7px 8px 6px;border-radius:13px;
+  background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.018));
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:0 2px 10px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.05);
+  transition:border-color .12s,box-shadow .12s,background .12s;position:relative;
+}
+.set-tiles{display:flex;gap:4px;}
+.set-meta{display:flex;gap:7px;align-items:center;font-size:10.5px;color:var(--muted);min-height:13px;line-height:1.2;}
+.set-meta .mtag{color:#cfe3d9;font-weight:700;letter-spacing:.3px;white-space:nowrap;}
+.set-meta .msum{opacity:.8;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.set-meta .mlock{color:#e5bd72;border:1px solid rgba(233,200,119,.35);background:rgba(233,200,119,.10);padding:0 5px;border-radius:999px;font-size:9.5px;white-space:nowrap;}
+.set-meta .merr{color:#ffb3b3;font-weight:600;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.set.invalid{border:1px dashed rgba(255,111,111,.85);background:rgba(255,90,90,.10);}
+.set.frozen .tile{cursor:not-allowed;filter:saturate(.8) brightness(.94);}
+.set.accept{border-color:rgba(233,200,119,.85);background:rgba(233,200,119,.10);box-shadow:0 0 0 2px rgba(233,200,119,.18),0 6px 18px rgba(0,0,0,.25);}
+.set.deny{border-color:rgba(255,111,111,.9);background:rgba(255,90,90,.14);}
+.set.ins-end::after{
+  content:"";position:absolute;right:3px;top:7px;bottom:22px;width:3px;border-radius:2px;
+  background:var(--gold);box-shadow:0 0 10px rgba(233,200,119,.9);
+}
+.shake{animation:shake .32s ease;}
+@keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-4px);}50%{transform:translateX(4px);}75%{transform:translateX(-2px);}}
+
+/* ---------------- 牌 ---------------- */
+.tile{
+  position:relative;width:40px;height:54px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(0,0,0,.45);
+  box-shadow:0 2px 0 rgba(0,0,0,.38),0 6px 12px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.35);
+  font-weight:800;font-size:22px;letter-spacing:-.5px;cursor:grab;flex:0 0 auto;
+  transition:transform .1s ease,box-shadow .1s ease;
+}
+.tile .tnum{transform:translateY(1px);}
+.tile .tcorner{position:absolute;top:1px;right:3px;font-size:8px;font-weight:700;opacity:.55;letter-spacing:0;}
+.tile.red{background:linear-gradient(158deg,#f05b5b 0%,#d32f2f 48%,#96171b 100%);color:#fff;}
+.tile.blue{background:linear-gradient(158deg,#4a9cf0 0%,#1e6fc4 48%,#0c3f7d 100%);color:#fff;}
+.tile.yellow{background:linear-gradient(158deg,#ffd968 0%,#eab61b 48%,#bd8a00 100%);color:#4a3400;}
+.tile.black{background:linear-gradient(158deg,#5a5a6b 0%,#33333f 48%,#17171d 100%);color:#fff;}
+.tile.joker{background:linear-gradient(150deg,#5b5b6e 0%,#2b2b36 55%,#141419 100%);color:#f3e3b6;flex-direction:column;gap:0;line-height:1;}
+.tile.joker .jstar{font-size:15px;color:#f0c869;line-height:1;}
+.tile.joker .jlabel{font-size:8.5px;letter-spacing:.5px;color:#dcc9a0;line-height:1.1;}
+.tile.joker .jlabel.rep{font-size:15px;font-weight:800;color:#fff;}
+.tile:hover{transform:translateY(-2px);}
+.tile.dragging{opacity:.35;}
+.tile.fresh{box-shadow:0 0 0 2px rgba(233,200,119,.8),0 2px 0 rgba(0,0,0,.38),0 6px 12px rgba(0,0,0,.26);}
+.tile[data-nodrag="1"]{cursor:default;}
+.tile[data-nodrag="1"]:hover{transform:none;}
+.tile.ins-before::before,.tile.ins-after::after{
+  content:"";position:absolute;top:3px;bottom:3px;width:3px;border-radius:2px;
+  background:var(--gold);box-shadow:0 0 10px rgba(233,200,119,.95);
+}
+.tile.ins-before::before{left:-4px;}
+.tile.ins-after::after{right:-4px;}
+
+/* ---------------- 底部 ---------------- */
+.bottom{flex:0 0 auto;border-top:1px solid var(--line);background:linear-gradient(180deg,rgba(0,0,0,.16),rgba(0,0,0,.42));box-shadow:0 -8px 22px rgba(0,0,0,.22);}
+.statusbar{display:flex;align-items:center;gap:8px;padding:6px 16px 0;height:30px;font-size:11.5px;overflow:hidden;white-space:nowrap;}
+.chip{
+  display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#cfdcd6;flex:0 0 auto;
+}
+.chip b{font-variant-numeric:tabular-nums;}
+.chip.turn{background:rgba(233,200,119,.14);border-color:rgba(233,200,119,.4);color:#f5e3bb;font-weight:700;}
+.chip.need{color:#ffd9a3;border-color:rgba(233,168,79,.32);background:rgba(233,168,79,.10);}
+.chip.good{color:#b3f0d1;border-color:rgba(95,211,154,.35);background:rgba(95,211,154,.10);}
+.chip.bad{color:#ffc0c0;border-color:rgba(255,111,111,.45);background:rgba(255,111,111,.12);font-weight:700;}
+.chip.wait{color:#c9dcd4;border-color:rgba(255,255,255,.16);background:rgba(255,255,255,.05);}
+.chip.hint{color:var(--muted);background:transparent;border-color:transparent;}
+.meldbar{width:96px;height:5px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden;flex:0 0 auto;}
+.meldbar i{display:block;height:100%;background:linear-gradient(90deg,#d8a94e,#ffe6a8);transition:width .2s;}
+.meldbar.done i{background:linear-gradient(90deg,#3fbf85,#8af0c0);}
+.rackrow{display:flex;align-items:center;gap:14px;padding:4px 16px 9px;}
+.rackmeta{flex:0 0 auto;min-width:104px;line-height:1.35;}
+.rlabel{font-size:12px;font-weight:800;letter-spacing:.4px;color:#eadfbe;}
+.rlabel .who{font-size:10px;color:var(--muted);font-weight:600;margin-left:5px;letter-spacing:0;}
+.rsub{font-size:10px;color:var(--muted);margin-top:2px;}
+.rack{
+  flex:1 1 auto;display:flex;align-items:center;gap:5px;min-height:72px;padding:6px 10px;border-radius:12px;
+  background:linear-gradient(180deg,rgba(0,0,0,.34),rgba(0,0,0,.16));
+  border:1px solid rgba(255,255,255,.09);
+  box-shadow:inset 0 2px 10px rgba(0,0,0,.45);
+  overflow-x:auto;overflow-y:hidden;
+}
+.rack .tile{width:44px;height:58px;font-size:24px;}
+.rack .tile .tcorner{font-size:9px;}
+.rack.drop-hi{border-color:rgba(233,200,119,.85);background:rgba(233,200,119,.12);box-shadow:inset 0 0 20px rgba(233,200,119,.18);}
+.rack.deny{border-color:rgba(255,111,111,.8);background:rgba(255,90,90,.10);}
+.rack.passive{border-color:rgba(255,255,255,.06);}
+.rack-empty{color:var(--muted);font-size:12px;padding-left:6px;}
+
+/* ---------------- 浮层 ---------------- */
+.toasts{position:fixed;left:50%;top:66px;transform:translateX(-50%);z-index:90;display:flex;flex-direction:column;gap:7px;align-items:center;pointer-events:none;}
+.toast{
+  padding:8px 15px;border-radius:10px;font-size:12.5px;font-weight:600;
+  background:rgba(10,26,21,.95);color:#e6f2ec;border:1px solid rgba(255,255,255,.16);
+  box-shadow:0 8px 26px rgba(0,0,0,.45);animation:tin .18s ease;max-width:min(580px,86vw);text-align:center;
+}
+.toast.warn{border-color:rgba(233,168,79,.6);color:#ffe2b8;}
+.toast.bad{border-color:rgba(255,111,111,.65);color:#ffd2d2;}
+.toast.ok{border-color:rgba(95,211,154,.6);color:#c8ffe4;}
+.toast.out{opacity:0;transform:translateY(-6px);transition:.28s;}
+@keyframes tin{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:none;}}
+
+.overlay{
+  position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;padding:24px;
+  background:radial-gradient(circle at 50% 38%,#174a3b 0%,#0a2019 62%,#04100c 100%);
+}
+.overlay.show{display:flex;}
+.overlay.veil{background:radial-gradient(circle at 50% 38%,rgba(23,74,59,.99),rgba(4,16,12,.995) 70%);backdrop-filter:blur(6px);}
+.panel{
+  position:relative;width:min(560px,92vw);max-height:92vh;overflow:auto;padding:26px 28px;border-radius:18px;
+  background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.1);
+  text-align:center;
+}
+.panel.wide{width:min(760px,94vw);text-align:left;padding:20px 26px 18px;}
+.panel.wide .rulesection{margin-top:13px;padding-top:11px;}
+.panel.wide .rulelist li{font-size:11.5px;line-height:1.55;}
+.panel.wide .rulelist{gap:6px;}
+.ptitle{font-size:26px;font-weight:800;letter-spacing:2px;color:var(--gold);margin:0 0 6px;}
+.psub{font-size:12.5px;color:var(--muted);margin:0 0 18px;line-height:1.6;}
+.pbtn{
+  font:inherit;font-size:14px;font-weight:800;letter-spacing:1px;padding:12px 30px;border-radius:12px;cursor:pointer;
+  color:#2a1f06;border:1px solid #f7e5bb;background:linear-gradient(180deg,#f5e0ac,#d6ae61);
+  box-shadow:0 3px 0 #8d6f33,0 10px 24px rgba(0,0,0,.4);transition:.15s;
+}
+.pbtn:hover:not(:disabled){filter:brightness(1.06);transform:translateY(-1px);}
+.pbtn:active:not(:disabled){transform:translateY(1px);box-shadow:0 1px 0 #8d6f33;}
+.pbtn:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
+.pbtn.small{padding:11px 18px;font-size:13px;}
+.hintline{font-size:11px;color:var(--muted);margin-top:14px;line-height:1.6;}
+.rulelist{margin:14px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px;text-align:left;}
+.rulelist li{font-size:12.5px;line-height:1.65;color:#c6d6ce;padding-left:16px;position:relative;}
+.rulelist li::before{content:"";position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:2px;background:var(--gold);opacity:.8;}
+.rulelist li b{color:#f0e0b8;}
+.rulelist li code{background:rgba(0,0,0,.35);padding:1px 5px;border-radius:4px;font-size:11px;color:#e6d6ab;}
+.rulesection{margin-top:18px;border-top:1px solid rgba(255,255,255,.09);padding-top:14px;}
+.rulesection h3{margin:0 0 8px;font-size:12px;letter-spacing:1.4px;color:var(--gold);text-transform:uppercase;}
+.maskbox{text-align:center;}
+.maskwho{font-size:13px;letter-spacing:5px;color:var(--muted);margin-bottom:10px;}
+.maskname{font-size:38px;font-weight:800;letter-spacing:3px;color:#fff;margin-bottom:8px;}
+.masknote{font-size:12.5px;color:var(--muted);line-height:1.7;margin-bottom:22px;}
+.maskbadge{display:inline-block;margin-bottom:18px;font-size:11.5px;padding:5px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.18);color:#d8e6df;background:rgba(0,0,0,.25);}
+.eyebrow{font-size:10px;letter-spacing:3px;color:var(--muted);margin-bottom:10px;}
+.legend{display:flex;gap:8px;justify-content:center;margin:16px 0 4px;flex-wrap:wrap;}
+.legend .lt{display:flex;align-items:center;gap:6px;font-size:11px;color:#cfdcd6;background:rgba(0,0,0,.22);padding:5px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.09);}
+.legend .sw{width:17px;height:23px;border-radius:4px;border:1px solid rgba(0,0,0,.45);box-shadow:inset 0 1px 0 rgba(255,255,255,.3);}
+.legend .sw.red{background:linear-gradient(160deg,#f05b5b,#a71a1a);}
+.legend .sw.blue{background:linear-gradient(160deg,#4a9cf0,#0c3f7d);}
+.legend .sw.yellow{background:linear-gradient(160deg,#ffd968,#bd8a00);}
+.legend .sw.black{background:linear-gradient(160deg,#5a5a6b,#17171d);}
+.legend .sw.joker{background:linear-gradient(150deg,#5b5b6e,#141419);color:#f0c869;font-size:9px;display:flex;align-items:center;justify-content:center;}
+table.score{width:100%;border-collapse:collapse;margin:16px 0 20px;font-size:13px;}
+table.score th,table.score td{padding:10px 12px;text-align:left;border-bottom:1px solid rgba(255,255,255,.09);}
+table.score th{font-size:10.5px;letter-spacing:1px;color:var(--muted);font-weight:700;text-transform:uppercase;}
+table.score td.num{font-variant-numeric:tabular-nums;text-align:right;}
+table.score tr.win td{color:#ffe7b8;font-weight:800;}
+table.score tr.win td:first-child::before{content:"★ ";color:var(--gold);}
+.etitle{font-size:30px;font-weight:800;letter-spacing:2px;color:var(--gold);margin:0 0 6px;text-align:center;}
+.esub{font-size:12.5px;color:var(--muted);text-align:center;margin:0 0 6px;}
+.closebtn{
+  position:absolute;right:14px;top:12px;width:30px;height:30px;border-radius:8px;cursor:pointer;
+  border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.25);color:#cfdcd6;font-size:15px;
+}
+
+/* ---------------- 模式选择 / 大厅 ---------------- */
+.filenote{
+  margin:0 0 14px;padding:10px 14px;border-radius:11px;text-align:left;
+  background:rgba(233,168,79,.13);border:1px solid rgba(233,168,79,.45);
+  font-size:11.5px;line-height:1.7;color:#ffe2b8;
+}
+.filenote b{display:block;font-size:12.5px;margin-bottom:3px;color:#ffd08a;}
+.filenote code{background:rgba(0,0,0,.35);padding:1px 5px;border-radius:4px;color:#ffe9c4;font-size:11px;}
+.modegrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0 8px;}
+.modecard{
+  font:inherit;text-align:left;cursor:pointer;padding:14px 16px;border-radius:13px;
+  background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.13);color:var(--ink);
+  display:flex;flex-direction:column;gap:5px;transition:.16s;
+}
+.modecard:hover{border-color:rgba(233,200,119,.7);background:rgba(233,200,119,.10);transform:translateY(-2px);}
+.modecard b{font-size:14px;letter-spacing:.5px;}
+.modecard span{font-size:11px;color:var(--muted);line-height:1.5;}
+.modecard .ic{font-size:18px;color:var(--gold);line-height:1;}
+.field{
+  font:inherit;font-size:13px;width:100%;padding:11px 12px;border-radius:10px;
+  background:rgba(0,0,0,.32);border:1px solid rgba(255,255,255,.16);color:var(--ink);outline:none;
+}
+.field:focus{border-color:rgba(233,200,119,.7);box-shadow:0 0 0 2px rgba(233,200,119,.14);}
+.field::placeholder{color:#7f948b;}
+.fieldlabel{display:block;text-align:left;font-size:11px;color:var(--muted);margin:6px 0 6px;letter-spacing:.5px;}
+.btnrow{display:flex;gap:10px;margin-top:12px;}
+.btnrow .pbtn{flex:1;}
+.divider{display:flex;align-items:center;gap:10px;margin:20px 0 12px;color:var(--muted);font-size:10.5px;letter-spacing:.5px;}
+.divider::before,.divider::after{content:"";height:1px;background:rgba(255,255,255,.12);flex:1;}
+.joinrow{display:flex;gap:8px;}
+.joinrow .field{flex:1;}
+.field.code{letter-spacing:6px;text-transform:uppercase;font-weight:800;text-align:center;}
+.errline{min-height:16px;font-size:11.5px;color:#ffb4b4;margin:10px 0 0;text-align:left;}
+.roomcode{
+  display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0 16px;
+  font-size:12px;color:var(--muted);
+}
+.roomcode b{font-size:30px;letter-spacing:7px;color:var(--gold);font-weight:800;padding-left:4px;}
+.seatlist{list-style:none;margin:0 0 18px;padding:0;display:flex;flex-direction:column;gap:8px;}
+.seatlist li{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;
+  background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.1);font-size:12.5px;text-align:left;
+}
+.seatlist li .idx{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.1);color:#cfe0d8;font-size:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+.seatlist li.me{border-color:rgba(233,200,119,.5);background:rgba(233,200,119,.10);}
+.seatlist li .nm{flex:1;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.seatlist li .st{font-size:10.5px;color:var(--muted);}
+.seatlist li .st.on{color:var(--ok);}
+.seatlist li .st.off{color:#e8b07a;}
+
+@media (max-width:1100px){
+  .brand small{display:none;}
+  .tile{width:36px;height:49px;font-size:20px;}
+  .rack .tile{width:40px;height:54px;font-size:22px;}
+  .pchip .pname{max-width:80px;}
+}
+@media (max-height:700px){
+  .statusbar{height:26px;padding-top:4px;}
+  .rack{min-height:64px;padding:4px 8px;}
+  .rack .tile{width:40px;height:53px;font-size:21px;}
+  .set-meta{font-size:9.5px;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">拉密 <small>RUMMIKUB</small></div>
+    <div class="players" id="players"></div>
+    <div class="spacer"></div>
+    <div class="roominfo" id="roomInfo" hidden title="点击复制邀请链接">
+      <span class="netdot" id="netDot"></span>
+      <span>房间 <b id="roomCodeTop">----</b></span>
+    </div>
+    <div class="deckbox" id="deckbox"></div>
+    <div class="actions">
+      <button class="btn ghost icon" id="btnHelp" title="规则与操作说明">?</button>
+      <button class="btn ghost" id="btnUndo" title="回到本回合开始时的状态">撤销本回合</button>
+      <button class="btn ghost" id="btnDraw" title="无法出牌时摸一张牌，回合结束">摸牌</button>
+      <button class="btn primary" id="btnConfirm" title="校验全桌并提交">确认本回合</button>
+    </div>
+  </header>
+
+  <div class="board-wrap" id="boardWrap">
+    <div class="board" id="board"></div>
+  </div>
+
+  <div class="bottom">
+    <div class="statusbar" id="statusbar"></div>
+    <div class="rackrow">
+      <div class="rackmeta">
+        <div class="rlabel" id="rackLabel">牌架</div>
+        <div class="rsub" id="rackSub">拖拽出牌 · 双击拆出</div>
+      </div>
+      <div class="rack" id="rack"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<!-- 开始页 -->
+<div class="overlay show" id="startScreen">
+  <div class="panel">
+    <div class="eyebrow">RUMMIKUB · 106 张 · 官方标准规则</div>
+    <h1 class="ptitle">拉 密</h1>
+    <p class="psub">选择游戏方式</p>
+    <div class="filenote" id="fileNote" hidden>
+      <b>你是直接双击打开的网页，只能玩「本地双人」</b>
+      <span>要和朋友线上玩：双击 rummikub-online 文件夹里的「启动游戏.bat」，用它打开的网址进入。</span>
+    </div>
+    <div class="modegrid">
+      <button class="modecard" id="modeLocal">
+        <span class="ic">◉</span>
+        <b>本地双人</b>
+        <span>同一台设备轮流操作，带换人遮罩</span>
+      </button>
+      <button class="modecard" id="modeOnline">
+        <span class="ic">⇄</span>
+        <b>线上对战</b>
+        <span>创建房间，和朋友各用一台设备实时对局</span>
+      </button>
+    </div>
+    <div class="legend">
+      <span class="lt"><i class="sw red"></i>红</span>
+      <span class="lt"><i class="sw blue"></i>蓝</span>
+      <span class="lt"><i class="sw yellow"></i>黄</span>
+      <span class="lt"><i class="sw black"></i>黑</span>
+      <span class="lt"><i class="sw joker">★</i>百搭</span>
+    </div>
+    <ul class="rulelist">
+      <li><b>破冰：</b>首次出牌只能用自己的牌组成牌组，牌面合计 <b>≥ 30 分</b>。</li>
+      <li><b>出牌：</b>同色连续顺组（≥3 张，13 不能接 1）或同数字异色群组（3~4 张）。</li>
+      <li><b>回合：</b>确认时全桌必须是合法牌组，且至少 1 张自己的牌落到桌面。</li>
+      <li><b>胜利：</b>先清空牌架者获胜；牌库摸完按剩余牌面值结算，百搭计 30 分。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- 线上大厅 -->
+<div class="overlay" id="lobby">
+  <div class="panel">
+    <button class="closebtn" id="lobbyClose" title="返回">×</button>
+    <h2 class="ptitle" style="font-size:21px;letter-spacing:1px;margin-top:4px">线上对战</h2>
+    <p class="psub" style="margin-bottom:12px">两人各用一台设备，房号即邀请码</p>
+
+    <div id="lobbyForm">
+      <label class="fieldlabel">你的昵称</label>
+      <input class="field" id="nickInput" maxlength="12" placeholder="例如：小明" autocomplete="off">
+      <div class="btnrow">
+        <button class="pbtn" id="btnCreateRoom">创建房间</button>
+      </div>
+      <div class="divider"><span>或加入朋友的房间</span></div>
+      <div class="joinrow">
+        <input class="field code" id="codeInput" maxlength="4" placeholder="房号" autocomplete="off">
+        <button class="pbtn small" id="btnJoinRoom">加入</button>
+      </div>
+      <p class="errline" id="lobbyErr"></p>
+    </div>
+
+    <div id="lobbyRoom" hidden>
+      <div class="roomcode">房号 <b id="roomCodeBig">----</b><button class="btn ghost" id="btnCopyCode">复制</button></div>
+      <ul class="seatlist" id="seatList"></ul>
+      <button class="pbtn" id="btnStartOnline">开始对局</button>
+      <p class="hintline" id="lobbyHint">把房号和网址发给朋友，两人都进入后即可开始。</p>
+    </div>
+  </div>
+</div>
+
+<!-- 换人遮罩（仅本地热座） -->
+<div class="overlay veil" id="turnMask">
+  <div class="panel maskbox" style="width:min(430px,90vw)">
+    <div class="maskwho" id="maskWho">PLAYER 1</div>
+    <div class="maskname" id="maskName">玩家 1</div>
+    <div class="maskbadge" id="maskBadge">未破冰</div>
+    <div class="masknote" id="maskNote">请把设备交给该玩家。</div>
+    <button class="pbtn" id="turnMaskBtn">我准备好了</button>
+  </div>
+</div>
+
+<!-- 规则说明 -->
+<div class="overlay" id="helpModal">
+  <div class="panel wide">
+    <button class="closebtn" id="helpClose" title="关闭">×</button>
+    <h2 class="ptitle" style="font-size:20px;letter-spacing:1px">规则与操作</h2>
+    <div class="rulesection" style="border-top:none;padding-top:4px;margin-top:8px">
+      <h3>牌组</h3>
+      <ul class="rulelist">
+        <li><b>顺组：</b>同色、数字连续的 3 张以上，1 为最小，<code>13</code> 不能接 <code>1</code>。</li>
+        <li><b>群组：</b>同一数字、颜色互不相同的 3~4 张（四种颜色各一张）。</li>
+        <li><b>百搭：</b>可替代任意牌并按其代表的数字计分；回合结束前桌面上的百搭必须留在合法牌组里。</li>
+      </ul>
+    </div>
+    <div class="rulesection">
+      <h3>破冰（首次出牌）</h3>
+      <ul class="rulelist">
+        <li>只能使用自己牌架上的牌，组成一个或多个牌组合计 <b>≥ 30 分</b>。</li>
+        <li>破冰回合不能使用、添加或重排桌面上已有的牌组（界面会标为「锁定」）。</li>
+        <li>破冰成功后，之后每回合都可以拆分、合并、重排桌面任意牌组。</li>
+      </ul>
+    </div>
+    <div class="rulesection">
+      <h3>回合</h3>
+      <ul class="rulelist">
+        <li>确认时：桌面每一张牌都必须属于合法牌组，且至少有 <b>1 张</b>来自自己牌架的牌留在桌面（纯重排不算出牌）。</li>
+        <li>无法出牌或选择不出牌：点「摸牌」，摸 1 张后回合立即结束，新摸的牌下回合才能打出。</li>
+        <li>牌库摸完仍无人清空牌架，则按剩余牌面值结算（百搭 30 分），分值低者获胜。</li>
+        <li>百搭被手上的真实牌换下后，本回合内必须被重新用进某个牌组，不能收回牌架。</li>
+      </ul>
+    </div>
+    <div class="rulesection">
+      <h3>操作</h3>
+      <ul class="rulelist">
+        <li><b>拖拽</b>牌架上的牌到桌面空白处可新建牌组；拖到已有牌组的两张牌之间可插入。</li>
+        <li><b>拖拽</b>桌面上的牌可跨牌组移动、重排；拖到桌面空白处可拆分为新牌组。</li>
+        <li><b>双击</b>牌架或桌面上的牌，可直接把它拆成一个新牌组。</li>
+        <li>金色描边表示「本回合从你牌架打出的牌」；红色虚线框表示该牌组当前不合法并会显示原因。</li>
+        <li>桌面上的牌不能收回牌架（本回合刚打出的牌除外）。</li>
+      </ul>
+    </div>
+    <div class="rulesection">
+      <h3>线上模式</h3>
+      <ul class="rulelist">
+        <li>服务端保存权威牌局并做规则校验；你只会收到自己的手牌，对手手牌永不下发。</li>
+        <li>只有轮到你时才能操作牌架与桌面；对手操作时桌面会实时同步。</li>
+        <li>断线后重新打开同一链接会回到原座位；「再来一局」需要双方都点击。</li>
+      </ul>
+    </div>
+    <div style="text-align:center;margin-top:20px">
+      <button class="pbtn" id="helpOk">知道了</button>
+    </div>
+  </div>
+</div>
+
+<!-- 结算 -->
+<div class="overlay" id="endScreen">
+  <div class="panel">
+    <h2 class="etitle" id="endTitle">玩家 1 获胜</h2>
+    <p class="esub" id="endSub"></p>
+    <table class="score" id="endTable"></table>
+    <button class="pbtn" id="againBtn">再来一局</button>
+    <p class="hintline" id="againHint"></p>
+  </div>
+</div>
+
+<script src="engine.js"></script>
+<script>
+(function(){
+"use strict";
+
+var E = window.RummiEngine;
+if (!E) {
+  document.body.innerHTML = '<div style="padding:40px;font:14px/1.8 sans-serif;color:#eee">' +
+    'engine.js 未能加载。请确认它与 index.html 在同一目录，或通过 node server.js 启动服务。</div>';
+  return;
+}
+
+var COLORS = E.COLORS;
+var CN = E.CN;
+var $ = function(s){ return document.querySelector(s); };
+var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
+
+var S = null;
+var ONLINE = {
+  room: null, token: null, seat: -1, version: null, view: null, es: null, connected: false
+};
+
+/* =========================================================
+   小工具
+   ========================================================= */
+function el(tag, cls, html){
+  var d = document.createElement(tag);
+  if (cls) d.className = cls;
+  if (html != null) d.innerHTML = html;
+  return d;
+}
+function esc(s){
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
+  });
+}
+function toast(msg, type){
+  var wrap = $("#toasts");
+  while (wrap.children.length >= 3) wrap.removeChild(wrap.firstChild);
+  var t = el("div", "toast " + (type || "info"), esc(msg));
+  wrap.appendChild(t);
+  setTimeout(function(){
+    t.classList.add("out");
+    setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 300);
+  }, 2600);
+}
+function showOverlay(sel){ var n = $(sel); if (n) n.classList.add("show"); }
+function hideOverlay(sel){ var n = $(sel); if (n) n.classList.remove("show"); }
+
+function isOnline(){ return !!S && S.mode === "online"; }
+function nameOf(i){
+  if (isOnline()) return (S.online.names && S.online.names[i]) || ("玩家 " + (i + 1));
+  return "玩家 " + (i + 1);
+}
+function deckLeft(){
+  if (!S) return 0;
+  return S.mode === "online" ? (S.deckCount || 0) : S.deck.length;
+}
+function mySeat(){
+  if (!isOnline()) return S ? S.cur : 0;
+  return ONLINE.seat;
+}
+function myRack(){
+  if (!S) return [];
+  if (S.mode === "online") return S.racks[ONLINE.seat] || [];
+  return S.racks[S.cur];
+}
+function rackCount(i){
+  if (!S) return 0;
+  if (S.mode === "online") return (S.rackCounts && S.rackCounts[i]) || 0;
+  return S.racks[i].length;
+}
+function canAct(){
+  if (!S || S.gameOver || S.busy) return false;
+  if (S.mode === "online"){
+    if (!S.online.started || ONLINE.seat < 0) return false;
+    return S.cur === ONLINE.seat;
+  }
+  return true;
+}
+
+/* =========================================================
+   本地热座
+   ========================================================= */
+function startLocal(){
+  if (ONLINE.es){ ONLINE.es.close(); ONLINE.es = null; }
+  ONLINE.seat = -1;
+  ONLINE.view = null;
+  ONLINE.version = null;
+  ONLINE.room = null;
+  ONLINE.token = null;
+  S = E.createState();
+  S.mode = "local";
+  S.busy = false;
+  S.drag = null;
+  $("#roomInfo").hidden = true;
+  hideOverlay("#startScreen");
+  hideOverlay("#lobby");
+  hideOverlay("#endScreen");
+  render();
+}
+
+function showTurnMask(){
+  if (!S || S.mode !== "local") return;
+  $("#maskWho").textContent = "PLAYER " + (S.cur + 1);
+  $("#maskName").textContent = "玩家 " + (S.cur + 1);
+  $("#maskBadge").textContent = S.melded[S.cur] ? "已破冰 · 可重排桌面" : "未破冰 · 首次需 ≥ 30 分";
+  $("#maskNote").innerHTML = "请把设备交给该玩家。<br>确认对手无法看到屏幕后再开始你的回合。";
+  showOverlay("#turnMask");
+}
+
+/* =========================================================
+   线上
+   ========================================================= */
+function netDot(){
+  var d = $("#netDot");
+  if (!d) return;
+  d.className = "netdot " + (ONLINE.connected ? "on" : "off");
+  d.title = ONLINE.connected ? "已连接" : "连接断开，正在重连…";
+}
+function updateNet(){
+  netDot();
+  if (S && S.mode === "online") renderStatus();
+}
+
+function enterRoom(res){
+  ONLINE.room = res.room;
+  ONLINE.token = res.token;
+  ONLINE.seat = res.seat;
+  ONLINE.version = null;
+  ONLINE.view = null;
+  try {
+    localStorage.setItem("rummi_tok_" + res.room, res.token);
+    localStorage.setItem("rummi_name", res.name || "");
+  } catch (e) { /* 隐私模式忽略 */ }
+  $("#roomInfo").hidden = false;
+  $("#roomCodeTop").textContent = res.room;
+  $("#lobbyForm").hidden = true;
+  $("#lobbyRoom").hidden = false;
+  $("#roomCodeBig").textContent = res.room;
+  $("#lobbyErr").textContent = "";
+  connectSSE();
+}
+
+function connectSSE(){
+  if (ONLINE.es) { ONLINE.es.close(); ONLINE.es = null; }
+  if (!ONLINE.room || !ONLINE.token) return;
+  var url = "/api/events?room=" + encodeURIComponent(ONLINE.room) +
+            "&token=" + encodeURIComponent(ONLINE.token);
+  var es = new EventSource(url);
+  ONLINE.es = es;
+  es.addEventListener("view", function(ev){
+    ONLINE.connected = true;
+    try { applyView(JSON.parse(ev.data)); } catch (e) { /* ignore */ }
+  });
+  es.onopen = function(){ ONLINE.connected = true; updateNet(); };
+  es.onerror = function(){
+    if (ONLINE.connected) toast("与服务器断开，正在自动重连…", "warn");
+    ONLINE.connected = false;
+    updateNet();
+  };
+}
+
+function api(path, body){
+  return fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {})
+  }).catch(function(){
+    throw new Error("连不上服务器：请双击 rummikub-online 里的「启动游戏.bat」，再用它打开的网址进入");
+  }).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(j){
+      /* 业务层拒绝（ok:false）交给调用方展示具体原因，不当成网络错误 */
+      if (!r.ok) throw new Error(j.error || ("请求失败 " + r.status));
+      return j;
+    });
+  });
+}
+
+function netAction(type, extra){
+  if (!ONLINE.room || !ONLINE.token) return;
+  var body = { room: ONLINE.room, token: ONLINE.token, type: type };
+  if (extra) { for (var k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) body[k] = extra[k]; }
+  var blocking = (type === "confirm" || type === "draw" || type === "undo");
+  if (blocking && S) { S.busy = true; renderButtons(); }
+  api("/api/action", body).then(function(j){
+    if (j.view) applyView(j.view);
+    if (!j.ok){
+      var msg = j.error || (j.issues && j.issues[0]) || "操作未完成";
+      toast(msg, "bad");
+      if (j.issues && j.issues[1]) toast(j.issues[1], "bad");
+      return;
+    }
+    if (type === "rematch" && j.waiting) toast("已申请再来一局，等待对手确认", "info");
+  }).catch(function(err){
+    toast(err.message || "操作失败", "bad");
+  }).then(function(){
+    if (S){ S.busy = false; renderButtons(); }
+  });
+}
+
+function applyView(v){
+  if (!v) return;
+  if (ONLINE.version != null && v.version < ONLINE.version) return;
+  ONLINE.version = v.version;
+  ONLINE.view = v;
+  if (v.seat != null) ONLINE.seat = v.seat;
+  ONLINE.room = v.room;
+
+  updateLobby(v);
+
+  if (!v.started) return;
+
+  hideOverlay("#lobby");
+  hideOverlay("#startScreen");
+  hideOverlay("#turnMask");
+
+  S = {
+    mode: "online",
+    board: v.board || [],
+    racks: [[], []],
+    rackCounts: v.rackCounts || [0, 0],
+    deckCount: v.deckCount || 0,
+    melded: v.melded || [false, false],
+    cur: v.cur || 0,
+    locked: v.locked || {},
+    gameOver: !!v.gameOver,
+    winner: v.winner,
+    reason: v.reason,
+    scores: v.scores,
+    busy: false,
+    drag: null,
+    online: v
+  };
+  if (v.seat >= 0) S.racks[v.seat] = v.myRack || [];
+
+  render();
+  if (v.gameOver) showOnlineResult(v);
+  else hideOverlay("#endScreen");
+}
+
+function updateLobby(v){
+  if (!v) return;
+  if (ONLINE.room) {
+    $("#roomCodeBig").textContent = ONLINE.room;
+    $("#roomCodeTop").textContent = ONLINE.room;
+    $("#roomInfo").hidden = false;
+  }
+  var list = $("#seatList");
+  if (!list) return;
+  list.innerHTML = "";
+  for (var i = 0; i < 2; i++){
+    var li = el("li", i === v.seat ? "me" : "");
+    li.appendChild(el("span", "idx", String(i + 1)));
+    var nm = v.names && v.names[i] ? v.names[i] : "等待加入";
+    li.appendChild(el("span", "nm", esc(nm)));
+    var on = v.connected && v.connected[i];
+    li.appendChild(el("span", "st " + (on ? "on" : "off"), on ? "在线" : "离线"));
+    list.appendChild(li);
+  }
+  var btn = $("#btnStartOnline");
+  var both = !!(v.seats && v.seats[0] && v.seats[1]);
+  btn.disabled = v.started || !both;
+  btn.textContent = v.started ? "对局进行中" : (both ? "开始对局" : "等待第二位玩家…");
+  $("#lobbyHint").textContent = both
+    ? "两人都已就位。开始后不能更换座位，断线可用同一链接回来。"
+    : "把房号和网址发给朋友，两人都进入后即可开始。";
+}
+
+/* =========================================================
+   渲染
+   ========================================================= */
+function makeTileEl(t, opt){
+  opt = opt || {};
+  var d = document.createElement("div");
+  d.className = "tile " + t.c;
+  d.dataset.tileId = t.id;
+  var drag = opt.draggable !== false;
+  d.draggable = drag;
+  if (!drag) d.dataset.nodrag = "1";
+  if (E.isJoker(t)){
+    if (opt.rep != null){
+      d.innerHTML = '<span class="jstar">★</span><span class="jlabel rep">' + opt.rep + "</span>";
+      d.title = "百搭 · 视为 " + opt.rep;
+    } else {
+      d.innerHTML = '<span class="jstar">★</span><span class="jlabel">百搭</span>';
+      d.title = "百搭牌";
+    }
+  } else {
+    d.innerHTML = '<span class="tnum">' + t.n + '</span><span class="tcorner">' + t.n + "</span>";
+    d.title = CN[t.c] + " " + t.n;
+  }
+  if (opt.fresh) d.classList.add("fresh");
+  return d;
+}
+
+function render(){
+  if (!S) return;
+  clearDropIndicators();
+  renderPlayers();
+  renderDeck();
+  renderBoard();
+  renderRack();
+  renderStatus();
+  renderButtons();
+}
+
+function renderPlayers(){
+  var box = $("#players");
+  box.innerHTML = "";
+  for (var i = 0; i < 2; i++){
+    var active = (S.cur === i) && !S.gameOver;
+    var chip = el("div", "pchip p" + i + (active ? " active" : ""));
+    chip.appendChild(el("span", "pdot"));
+    var nm = nameOf(i);
+    chip.appendChild(el("span", "pname", esc(nm)));
+    if (isOnline() && i === ONLINE.seat) chip.appendChild(el("span", "me", "你"));
+    chip.appendChild(el("span", "pmeta", rackCount(i) + " 张"));
+    chip.appendChild(el("span", "pbadge " + (S.melded[i] ? "ok" : "no"), S.melded[i] ? "已破冰" : "未破冰"));
+    box.appendChild(chip);
+  }
+}
+
+function renderDeck(){
+  var box = $("#deckbox");
+  box.innerHTML = "";
+  var n = deckLeft();
+  box.appendChild(el("div", "deckstack", String(n)));
+  var meta = el("div", "deckmeta");
+  meta.appendChild(el("b", null, "牌库"));
+  meta.appendChild(el("span", null, n ? "剩余可摸" : "已摸完"));
+  box.appendChild(meta);
+}
+
+function renderBoard(){
+  var board = $("#board");
+  board.innerHTML = "";
+  var act = canAct();
+  board.classList.toggle("is-empty", S.board.length === 0);
+  if (S.board.length === 0){
+    var ph = el("div", "board-empty",
+      "<b>桌面为空</b><span>" + (act ? "把牌架上的牌拖到这里，组成顺组或群组" : "等待对手出牌…") + "</span>");
+    ph.id = "boardEmpty";
+    board.appendChild(ph);
+  }
+  var seat = mySeat();
+  for (var i = 0; i < S.board.length; i++){
+    var set = S.board[i];
+    var a = E.analyzeSet(set.tiles);
+    var frozen = !S.melded[seat] && set.tiles.some(function(t){ return S.locked[t.id]; });
+    var boxEl = el("div", "set" + (a.ok ? "" : " invalid") + (frozen ? " frozen" : ""));
+    boxEl.dataset.setId = set.id;
+    if (frozen) boxEl.title = "破冰前不能使用或重排桌面已有的牌组";
+    var row = el("div", "set-tiles");
+    for (var k = 0; k < set.tiles.length; k++){
+      var t = set.tiles[k];
+      row.appendChild(makeTileEl(t, {
+        rep: a.ok ? a.rep[k] : null,
+        fresh: !S.locked[t.id],
+        draggable: act && !frozen
+      }));
+    }
+    boxEl.appendChild(row);
+
+    var meta = el("div", "set-meta");
+    if (a.ok){
+      meta.appendChild(el("span", "mtag", a.type === "run" ? ("顺组 " + a.start + "–" + a.end) : ("群组 " + a.num)));
+      meta.appendChild(el("span", "msum", a.sum + " 分"));
+      if (frozen) meta.appendChild(el("span", "mlock", "锁定"));
+    } else {
+      var err = el("span", "merr", "不合法 · " + a.reason);
+      err.title = a.reason;
+      meta.appendChild(err);
+    }
+    boxEl.appendChild(meta);
+    board.appendChild(boxEl);
+  }
+}
+
+function renderRack(){
+  var rack = $("#rack");
+  var list = myRack().slice();
+  list.sort(function(a, b){
+    var ja = E.isJoker(a) ? 1 : 0, jb = E.isJoker(b) ? 1 : 0;
+    if (ja !== jb) return ja - jb;
+    if (a.n !== b.n) return a.n - b.n;
+    return COLORS.indexOf(a.c) - COLORS.indexOf(b.c);
+  });
+  rack.innerHTML = "";
+  if (!list.length) rack.appendChild(el("div", "rack-empty", "牌架已清空"));
+  var act = canAct();
+  for (var i = 0; i < list.length; i++){
+    rack.appendChild(makeTileEl(list[i], { draggable: act }));
+  }
+  rack.classList.toggle("passive", !act);
+
+  var label = isOnline() ? "你的牌架" : ("玩家 " + (S.cur + 1) + " 的牌架");
+  $("#rackLabel").innerHTML = label + '<span class="who">' + list.length + " 张</span>";
+  $("#rackSub").textContent = act ? "拖拽出牌 · 双击拆出" : (S.gameOver ? "对局已结束" : "等待对手出牌…");
+}
+
+function renderStatus(){
+  var bar = $("#statusbar");
+  bar.innerHTML = "";
+  var add = function(cls, html){
+    var c = el("span", "chip " + cls, html);
+    bar.appendChild(c);
+    return c;
+  };
+  if (!S) return;
+
+  if (S.gameOver){ add("bad", "对局已结束"); return; }
+
+  var act = canAct();
+  if (isOnline()){
+    if (act) add("turn", "你的回合");
+    else add("wait", "等待 " + esc(nameOf(S.cur)) + " 出牌…");
+  } else {
+    add("turn", "玩家 " + (S.cur + 1) + " 的回合");
+  }
+
+  if (act){
+    if (!S.melded[mySeat()]){
+      var sum = E.meldSum(S);
+      add(sum >= 30 ? "good" : "need", "破冰 <b>" + sum + "</b> / 30 分");
+      var mb = el("span", "meldbar" + (sum >= 30 ? " done" : ""));
+      var fill = el("i");
+      fill.style.width = Math.min(100, (sum / 30) * 100) + "%";
+      mb.appendChild(fill);
+      bar.appendChild(mb);
+      add("hint", sum >= 30 ? "已达破冰线，可确认" : "还需 " + (30 - sum) + " 分");
+    } else {
+      add("good", "本回合已出 <b>" + E.freshCount(S) + "</b> 张");
+    }
+  }
+
+  var bad = 0;
+  for (var i = 0; i < S.board.length; i++){
+    if (S.board[i].tiles.length && !E.analyzeSet(S.board[i].tiles).ok) bad++;
+  }
+  if (bad) add("bad", "不合法牌组 × " + bad);
+  if (!act && !isOnline()) add("hint", "拖拽出牌 · 红色虚线为非法");
+}
+
+function renderButtons(){
+  var busy = !S || S.busy || S.gameOver || !canAct();
+  $("#btnConfirm").disabled = busy;
+  $("#btnUndo").disabled = busy;
+  $("#btnDraw").disabled = busy;
+  var n = deckLeft();
+  $("#btnDraw").textContent = n === 0 ? "结束对局" : "摸牌";
+  $("#btnDraw").title = n === 0 ? "牌库已空：无法摸牌，直接按剩余牌面结算" : "无法出牌时摸一张牌，回合结束";
+}
+
+/* =========================================================
+   拖拽
+   ========================================================= */
+function calcDropIndex(row, clientX){
+  var tiles = Array.prototype.slice.call(row.querySelectorAll(".tile"));
+  for (var i = 0; i < tiles.length; i++){
+    var r = tiles[i].getBoundingClientRect();
+    if (clientX < r.left + r.width / 2) return i;
+  }
+  return tiles.length;
+}
+function showInsert(setEl, idx){
+  var tiles = Array.prototype.slice.call(setEl.querySelectorAll(".tile"));
+  if (!tiles.length){ setEl.classList.add("ins-end"); return; }
+  if (idx >= tiles.length) tiles[tiles.length - 1].classList.add("ins-after");
+  else tiles[idx].classList.add("ins-before");
+}
+function clearDropIndicators(){
+  var nodes = $$(".ins-before,.ins-after,.deny,.accept,.accept-new,.drop-hi,.ins-end");
+  for (var i = 0; i < nodes.length; i++){
+    nodes[i].classList.remove("ins-before", "ins-after", "deny", "accept", "accept-new", "drop-hi", "ins-end");
+  }
+  var rack = $("#rack");
+  if (rack) rack.classList.remove("drop-hi", "deny");
+}
+
+function onDragStart(e){
+  if (!S || S.busy || S.gameOver){ e.preventDefault(); return; }
+  var tileEl = e.target.closest ? e.target.closest(".tile") : null;
+  if (!tileEl){ e.preventDefault(); return; }
+  if (!canAct()){
+    e.preventDefault();
+    toast(isOnline() ? "还没轮到你出牌" : "现在不能操作", "warn");
+    return;
+  }
+  var loc = findTileLoc(tileEl.dataset.tileId);
+  if (!loc){ e.preventDefault(); return; }
+  if (loc.zone === "board"){
+    var seat = mySeat();
+    var frozen = !S.melded[seat] && loc.set.tiles.some(function(t){ return S.locked[t.id]; });
+    if (frozen){
+      e.preventDefault();
+      toast("破冰前不能使用或重排桌面已有的牌组", "warn");
+      return;
+    }
+  }
+  S.drag = {
+    tileId: tileEl.dataset.tileId,
+    from: loc.zone,
+    setId: loc.set ? loc.set.id : null,
+    idx: loc.idx,
+    locked: !!S.locked[tileEl.dataset.tileId]
+  };
+  try {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", tileEl.dataset.tileId);
+  } catch (err) { /* ignore */ }
+  tileEl.classList.add("dragging");
+}
+
+function findTileLoc(tileId){
+  var rack = myRack();
+  for (var i = 0; i < rack.length; i++) if (rack[i].id === tileId) return { zone: "rack", idx: i, set: null };
+  for (var b = 0; b < S.board.length; b++){
+    var ts = S.board[b].tiles;
+    for (var k = 0; k < ts.length; k++) if (ts[k].id === tileId) return { zone: "board", idx: k, set: S.board[b] };
+  }
+  return null;
+}
+
+function onDragEnd(){
+  var d = $$(".tile.dragging");
+  for (var i = 0; i < d.length; i++) d[i].classList.remove("dragging");
+  if (S) S.drag = null;
+  clearDropIndicators();
+}
+
+function onBoardDragOver(e){
+  if (!S || !S.drag) return;
+  e.preventDefault();
+  clearDropIndicators();
+  if (!canAct()) return;
+  var setEl = e.target.closest ? e.target.closest(".set") : null;
+  if (setEl){
+    var set = null;
+    for (var i = 0; i < S.board.length; i++) if (S.board[i].id === setEl.dataset.setId) set = S.board[i];
+    var seat = mySeat();
+    var frozen = set && !S.melded[seat] && set.tiles.some(function(t){ return S.locked[t.id]; });
+    if (!set || frozen){
+      setEl.classList.add("deny");
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+      return;
+    }
+    setEl.classList.add("accept");
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    showInsert(setEl, calcDropIndex(setEl.querySelector(".set-tiles"), e.clientX));
+  } else {
+    $("#board").classList.add("accept-new");
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+  }
+}
+
+function onBoardDrop(e){
+  if (!S || !S.drag) return;
+  e.preventDefault();
+  var drag = S.drag;
+  var setEl = e.target.closest ? e.target.closest(".set") : null;
+  S.drag = null;
+
+  if (!canAct()){
+    render();
+    toast("还没轮到你出牌", "warn");
+    return;
+  }
+
+  if (setEl){
+    var set = null;
+    for (var i = 0; i < S.board.length; i++) if (S.board[i].id === setEl.dataset.setId) set = S.board[i];
+    if (!set){ render(); return; }
+    var seat = mySeat();
+    var frozen = !S.melded[seat] && set.tiles.some(function(t){ return S.locked[t.id]; });
+    if (frozen){
+      render();
+      toast("破冰前不能把牌打到桌面已有的牌组里", "warn");
+      return;
+    }
+    var idx = calcDropIndex(setEl.querySelector(".set-tiles"), e.clientX);
+    actMove(drag.tileId, { type: "set", setId: set.id, index: idx });
+    return;
+  }
+  actMove(drag.tileId, { type: "new" });
+}
+
+function onRackDragOver(e){
+  if (!S || !S.drag) return;
+  e.preventDefault();
+  var ok = canAct() && S.drag.from === "board" && !S.drag.locked;
+  var rack = $("#rack");
+  rack.classList.toggle("drop-hi", ok);
+  rack.classList.toggle("deny", !ok);
+  if (e.dataTransfer) e.dataTransfer.dropEffect = ok ? "move" : "none";
+}
+
+function onRackDrop(e){
+  if (!S || !S.drag) return;
+  e.preventDefault();
+  var drag = S.drag;
+  S.drag = null;
+  if (drag.from !== "board"){
+    render();
+    toast("牌架上的牌要拖到桌面组成牌组", "warn");
+    return;
+  }
+  if (drag.locked){
+    render();
+    toast("已出到桌面的牌不能收回牌架", "bad");
+    return;
+  }
+  actMove(drag.tileId, { type: "rack" });
+}
+
+function onDblClick(e){
+  if (!S || S.gameOver || S.busy) return;
+  var tileEl = e.target.closest ? e.target.closest(".tile") : null;
+  if (!tileEl) return;
+  if (!canAct()){ toast("还没轮到你出牌", "warn"); return; }
+  var loc = findTileLoc(tileEl.dataset.tileId);
+  if (!loc) return;
+  if (loc.zone === "board"){
+    var seat = mySeat();
+    if (!S.melded[seat] && loc.set.tiles.some(function(t){ return S.locked[t.id]; })){
+      toast("破冰前不能重排桌面已有的牌组", "warn");
+      return;
+    }
+  }
+  actMove(tileEl.dataset.tileId, { type: "new" });
+}
+
+/* =========================================================
+   出牌动作
+   ========================================================= */
+function actMove(tileId, target){
+  if (!S || !canAct()){ toast("还没轮到你出牌", "warn"); return; }
+  if (S.mode === "online"){
+    netAction("move", { tileId: tileId, target: target });
+    return;
+  }
+  var r = E.applyMove(S, S.cur, tileId, target);
+  if (!r.ok){ toast(r.error, "warn"); }
+  render();
+}
+
+function confirmTurn(){
+  if (!S || S.busy || S.gameOver) return;
+  if (S.mode === "online"){
+    if (!canAct()){ toast("还没轮到你出牌", "warn"); return; }
+    netAction("confirm");
+    return;
+  }
+  var seat = S.cur;
+  var wasMelded = S.melded[seat];
+  var r = E.commitTurn(S, seat);
+  if (!r.ok){
+    render();
+    shakeInvalid();
+    toast(r.issues[0], "bad");
+    if (r.issues.length > 1) toast(r.issues[1], "bad");
+    return;
+  }
+  render();
+  if (r.win){ showLocalResult(); return; }
+  toast(wasMelded ? "出牌成功，换对手" : "破冰成功！之后可自由重排桌面", "ok");
+  showTurnMask();
+}
+
+function undoTurn(){
+  if (!S || S.busy || S.gameOver) return;
+  if (S.mode === "online"){
+    if (!canAct()){ toast("还没轮到你出牌", "warn"); return; }
+    netAction("undo");
+    return;
+  }
+  var r = E.undoTurn(S, S.cur);
+  if (!r.ok){ toast(r.error, "warn"); return; }
+  render();
+  toast("已撤销：桌面、牌架、牌库与破冰状态均回到回合开始", "info");
+}
+
+function drawOrPass(){
+  if (!S || S.busy || S.gameOver) return;
+  if (S.mode === "online"){
+    if (!canAct()){ toast("还没轮到你出牌", "warn"); return; }
+    netAction("draw");
+    return;
+  }
+  var r = E.drawTile(S, S.cur);
+  if (!r.ok){ toast(r.error, "warn"); return; }
+  if (r.ended){ render(); showLocalResult(); return; }
+  var label = E.isJoker(r.tile) ? "百搭牌" : (CN[r.tile.c] + " " + r.tile.n);
+  render();
+  toast("摸到 " + label + " · 回合并结束，新摸的牌下回合才能打出", "info");
+  showTurnMask();
+}
+
+function shakeInvalid(){
+  var nodes = $$(".set.invalid");
+  for (var i = 0; i < nodes.length; i++){
+    (function(n){
+      n.classList.remove("shake");
+      void n.offsetWidth;
+      n.classList.add("shake");
+      setTimeout(function(){ n.classList.remove("shake"); }, 360);
+    })(nodes[i]);
+  }
+}
+
+/* =========================================================
+   结算
+   ========================================================= */
+function paintResult(o){
+  $("#endTitle").textContent = o.title;
+  $("#endSub").textContent = o.sub;
+  var html = "<tr><th>玩家</th><th>剩余牌</th><th style='text-align:right'>剩余分值</th></tr>";
+  for (var i = 0; i < 2; i++){
+    html += "<tr class='" + (i === o.winner ? "win" : "") + "'>" +
+      "<td>" + esc(o.names[i]) + (i === o.winner ? "（胜）" : "") + "</td>" +
+      "<td>" + o.counts[i] + " 张</td>" +
+      "<td class='num'>" + o.scores[i] + " 分</td></tr>";
+  }
+  $("#endTable").innerHTML = html;
+  $("#againHint").textContent = o.online ? "「再来一局」需要双方都确认。" : "";
+  showOverlay("#endScreen");
+}
+
+function showLocalResult(){
+  var scores = S.scores || [E.scoreOf(S.racks[0]), E.scoreOf(S.racks[1])];
+  paintResult({
+    title: S.winner === -1 ? "平局" : "玩家 " + (S.winner + 1) + " 获胜",
+    sub: S.reason === "rack" ? "清空牌架，提前结束对局" : "牌库已空 · 按剩余牌面值结算，分值低者获胜",
+    names: ["玩家 1", "玩家 2"],
+    counts: [S.racks[0].length, S.racks[1].length],
+    scores: scores,
+    winner: S.winner,
+    online: false
+  });
+  var btn = $("#againBtn");
+  btn.disabled = false;
+  btn.textContent = "再来一局";
+}
+
+function showOnlineResult(v){
+  var scores = v.scores || [0, 0];
+  paintResult({
+    title: v.winner === -1 ? "平局" : (nameOf(v.winner) + " 获胜"),
+    sub: v.reason === "rack" ? "清空牌架，提前结束对局" : "牌库已空 · 按剩余牌面值结算，分值低者获胜",
+    names: v.names,
+    counts: v.rackCounts,
+    scores: scores,
+    winner: v.winner,
+    online: true
+  });
+  var btn = $("#againBtn");
+  if (v.rematch && v.rematch[v.seat]){
+    btn.disabled = true;
+    btn.textContent = "已申请，等待对手…";
+  } else {
+    btn.disabled = false;
+    btn.textContent = "再来一局";
+  }
+}
+
+/* =========================================================
+   大厅
+   ========================================================= */
+function openLobby(){
+  showOverlay("#lobby");
+  $("#lobbyErr").textContent = "";
+  if (location.protocol === "file:"){
+    lobbyErr("直接双击网页不能联网。请双击 rummikub-online 文件夹里的「启动游戏.bat」，用它打开的网址进入。");
+  }
+  if (ONLINE.room && ONLINE.token){
+    $("#lobbyForm").hidden = true;
+    $("#lobbyRoom").hidden = false;
+    $("#roomCodeBig").textContent = ONLINE.room;
+  } else {
+    $("#lobbyForm").hidden = false;
+    $("#lobbyRoom").hidden = true;
+  }
+  setTimeout(function(){ $("#nickInput").focus(); }, 60);
+}
+
+function lobbyErr(msg){ $("#lobbyErr").textContent = msg || ""; }
+
+function doCreate(){
+  var name = $("#nickInput").value.trim();
+  lobbyErr("");
+  var btn = $("#btnCreateRoom");
+  btn.disabled = true;
+  api("/api/create", { name: name }).then(function(j){
+    enterRoom(j);
+  }).catch(function(e){
+    lobbyErr(e.message);
+  }).then(function(){ btn.disabled = false; });
+}
+
+function doJoin(room, name, token){
+  room = String(room || "").toUpperCase().trim();
+  if (!room) { lobbyErr("请输入 4 位房号"); return; }
+  lobbyErr("");
+  var btn = $("#btnJoinRoom");
+  btn.disabled = true;
+  api("/api/join", { room: room, name: name, token: token }).then(function(j){
+    enterRoom(j);
+  }).catch(function(e){
+    lobbyErr(e.message);
+    if (token){
+      try { localStorage.removeItem("rummi_tok_" + room); } catch (err) { /* ignore */ }
+      ONLINE.room = null;
+      ONLINE.token = null;
+      $("#roomInfo").hidden = true;
+      $("#lobbyForm").hidden = false;
+      $("#lobbyRoom").hidden = true;
+      showOverlay("#lobby");
+      openLobby();
+    }
+  }).then(function(){ btn.disabled = false; });
+}
+
+function startOnline(){
+  var btn = $("#btnStartOnline");
+  btn.disabled = true;
+  api("/api/start", { room: ONLINE.room, token: ONLINE.token }).then(function(j){
+    if (j.view) applyView(j.view);
+  }).catch(function(e){
+    lobbyErr(e.message);
+    toast(e.message, "bad");
+  }).then(function(){ btn.disabled = false; });
+}
+
+function copyInvite(){
+  var url = location.origin + location.pathname + "?room=" + encodeURIComponent(ONLINE.room || "");
+  var text = url;
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){ toast("邀请链接已复制", "ok"); },
+      function(){ toast(url, "info"); });
+  } else {
+    toast(url, "info");
+  }
+}
+
+/* =========================================================
+   事件
+   ========================================================= */
+function bind(){
+  $("#startBtn") && $("#startBtn").addEventListener("click", function(){ hideOverlay("#startScreen"); });
+
+  $("#modeLocal").addEventListener("click", startLocal);
+  $("#modeOnline").addEventListener("click", openLobby);
+  $("#lobbyClose").addEventListener("click", function(){
+    if (ONLINE.room && ONLINE.token){ toast("已在大厅中，关掉页面即离开房间", "info"); }
+    hideOverlay("#lobby");
+    if (!S) showOverlay("#startScreen");
+  });
+  $("#btnCreateRoom").addEventListener("click", doCreate);
+  $("#btnJoinRoom").addEventListener("click", function(){
+    doJoin($("#codeInput").value, $("#nickInput").value.trim(), null);
+  });
+  $("#codeInput").addEventListener("keydown", function(e){
+    if (e.key === "Enter") doJoin($("#codeInput").value, $("#nickInput").value.trim(), null);
+  });
+  $("#btnStartOnline").addEventListener("click", startOnline);
+  $("#btnCopyCode").addEventListener("click", copyInvite);
+  $("#roomInfo").addEventListener("click", copyInvite);
+
+  $("#btnConfirm").addEventListener("click", confirmTurn);
+  $("#btnUndo").addEventListener("click", undoTurn);
+  $("#btnDraw").addEventListener("click", drawOrPass);
+
+  $("#btnHelp").addEventListener("click", function(){ showOverlay("#helpModal"); });
+  $("#helpClose").addEventListener("click", function(){ hideOverlay("#helpModal"); });
+  $("#helpOk").addEventListener("click", function(){ hideOverlay("#helpModal"); });
+  $("#helpModal").addEventListener("click", function(e){
+    if (e.target === $("#helpModal")) hideOverlay("#helpModal");
+  });
+
+  $("#turnMaskBtn").addEventListener("click", function(){ hideOverlay("#turnMask"); });
+
+  $("#againBtn").addEventListener("click", function(){
+    if (isOnline()){ netAction("rematch"); return; }
+    hideOverlay("#endScreen");
+    startLocal();
+    showTurnMask();
+  });
+
+  document.addEventListener("keydown", function(e){
+    if (e.key === "Escape"){
+      /* 换人遮罩不响应 Esc，避免泄露手牌 */
+      hideOverlay("#helpModal");
+      if (!ONLINE.room) hideOverlay("#lobby");
+    }
+  });
+
+  document.addEventListener("dragstart", onDragStart);
+  document.addEventListener("dragend", onDragEnd);
+  document.addEventListener("dblclick", onDblClick);
+
+  var wrap = $("#boardWrap");
+  wrap.addEventListener("dragover", onBoardDragOver);
+  wrap.addEventListener("drop", onBoardDrop);
+  wrap.addEventListener("dragleave", function(e){
+    if (!wrap.contains(e.relatedTarget)) clearDropIndicators();
+  });
+
+  var rack = $("#rack");
+  rack.addEventListener("dragover", onRackDragOver);
+  rack.addEventListener("drop", onRackDrop);
+  rack.addEventListener("dragleave", function(e){
+    if (!rack.contains(e.relatedTarget)) rack.classList.remove("drop-hi", "deny");
+  });
+
+  window.addEventListener("beforeunload", function(){
+    if (ONLINE.es) ONLINE.es.close();
+  });
+}
+
+/* =========================================================
+   启动
+   ========================================================= */
+bind();
+
+(function boot(){
+  if (location.protocol === "file:"){
+    $("#fileNote").hidden = false;
+  }
+  var q = new URLSearchParams(location.search);
+  var room = (q.get("room") || "").toUpperCase().trim();
+  var savedName = "";
+  try { savedName = localStorage.getItem("rummi_name") || ""; } catch (e) { /* ignore */ }
+  if (savedName) $("#nickInput").value = savedName;
+
+  if (!room) return;
+
+  showOverlay("#lobby");
+  $("#codeInput").value = room;
+  var tok = null;
+  try { tok = localStorage.getItem("rummi_tok_" + room); } catch (e) { /* ignore */ }
+  if (tok){
+    $("#lobbyErr").textContent = "正在恢复房间 " + room + " …";
+    doJoin(room, savedName || "玩家", tok);
+  } else {
+    lobbyErr("请输入昵称，加入房间 " + room);
+    $("#nickInput").focus();
+  }
+})();
+
+})();
+</script>
+</body>
+</html>
